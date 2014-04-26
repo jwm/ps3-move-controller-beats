@@ -1,0 +1,70 @@
+#!/usr/bin/python -tt
+
+# Copyright (c) 2013-2014, John Morrissey
+# 
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are
+# met:
+#
+#    * Redistributions of source code must retain the above copyright
+#      notice, this list of conditions and the following disclaimer.
+#    * Redistributions in binary form must reproduce the above copyright
+#      notice, this list of conditions and the following disclaimer in the
+#      documentation and/or other materials provided with the distribution.
+# 
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+# IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+# THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+# PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+# PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+# LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+# NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+# SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+import random
+
+import aubio
+import numpy
+import psmove
+import pyaudio
+
+win_s = 512 # fft size
+hop_s = win_s / 2 # hop size
+sample_rate = 44100
+
+p = pyaudio.PyAudio()
+#max_devs = p.get_device_count()
+#for i in range(max_devs):
+#    devinfo = p.get_device_info_by_index(i)
+#    for name, value in list(devinfo.items()):
+#        if name == 'name':
+#            print value
+#            print i
+stream = p.open(format=pyaudio.paFloat32,
+    channels=1, rate=sample_rate,
+    input=True, frames_per_buffer=hop_s,
+    input_device_index=0)
+
+onset = aubio.onset('default', win_s, hop_s, sample_rate)
+onset.set_threshold(3)
+onset.set_silence(-20.)
+
+move = psmove.PSMove()
+while True:
+    try:
+        data = stream.read(hop_s)
+    except IOError:
+        continue
+
+    f = numpy.fromstring(data, dtype=numpy.dtype('<f'))
+
+    if not onset(f):
+        continue
+    if onset.get_last() != 0:
+        move.set_leds(random.randrange(256), random.randrange(256),
+            random.randrange(256))
+        move.update_leds()
+        print onset.get_last_s()
